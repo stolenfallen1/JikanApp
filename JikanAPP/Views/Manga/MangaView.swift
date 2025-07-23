@@ -8,39 +8,57 @@
 import SwiftUI
 
 struct MangaView: View {
-    let items = Array(1...20)
-    let columns = [
-        GridItem(.adaptive(minimum: 150))
-    ]
+    @StateObject private var viewModel = MangaViewModel()
+    let columns = [GridItem(.adaptive(minimum: 150))]
+    
+
     
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(items, id: \.self) { item in
-                    MangaItemView(item: item)
+                ForEach(viewModel.mangaList) { manga in
+                    MangaItemView(manga: manga)
                 }
                 .padding()
             }
-            .navigationTitle("Manga")
+            .navigationTitle("Top Manga")
+        }
+        .task {
+            await viewModel.fetchTopManga()
         }
     }
 }
 
 struct MangaItemView: View {
-    let item: Int
+    let manga: Manga
     
     var body: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.blue.opacity(0.7))
-            .frame(height: 20)
-            .overlay {
-                Text("Manga \(item)")
-                    .foregroundColor(.white)
-                    .bold()
+        VStack {
+            AsyncImage(url: URL(string: manga.images.jpg.image_url)) { phase in
+                switch phase {
+                    case .empty:
+                        ProgressView()
+                    case .success(let image):
+                        image.resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 20)
+                            .clipped()
+                    case .failure(let error):
+                        Image(systemName: "xmark.octagon")
+                    @unknown default:
+                        EmptyView()
+                }
             }
+            Text(manga.title)
+                .font(.caption)
+                .lineLimit(2)
+                .padding([.leading, .trailing], 4)
+        }
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(12)
     }
 }
 
 #Preview {
-    MangaView()
+//    MangaView()
 }
