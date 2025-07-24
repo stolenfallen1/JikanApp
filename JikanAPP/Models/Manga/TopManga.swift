@@ -1,5 +1,5 @@
 //
-//  Anime.swift
+//  TopManga.swift
 //  JikanAPP
 //
 //  Created by stolenfallen1 on 7/23/25.
@@ -7,11 +7,11 @@
 
 import Foundation
 
-struct AnimeResponse: Codable {
-    let data: [Anime]
+struct MangaResponse: Codable {
+    let data: [TopManga]
 }
 
-struct Anime: Codable, Identifiable {
+struct TopManga: Codable, Identifiable {
     let mal_id: Int
     let title: String
     let images: Images
@@ -23,5 +23,6 @@ struct Anime: Codable, Identifiable {
             let image_url: String
         }
     }
+    
     var id: Int { mal_id }
 }
