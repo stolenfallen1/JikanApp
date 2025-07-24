@@ -11,7 +11,7 @@ import SwiftUI
 struct JikanAPPApp: App {
     var body: some Scene {
         WindowGroup {
-            WelcomeView()
+            HomeView()
         }
     }
 }

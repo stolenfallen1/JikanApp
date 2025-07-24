@@ -1,5 +1,5 @@
 //
-//  MangaViewModel.swift
+//  TopMangaViewModel.swift
 //  JikanAPP
 //
 //  Created by stolenfallen1 on 7/23/25.
@@ -8,8 +8,8 @@
 import Foundation
 
 @MainActor
-class MangaViewModel: ObservableObject {
-    @Published var mangaList: [Manga] = []
+class TopMangaViewModel: ObservableObject {
+    @Published var topMangaList: [TopManga] = []
     
     func fetchTopManga() async {
         let urlString = "https://api.jikan.moe/v4/top/manga"
@@ -18,9 +18,9 @@ class MangaViewModel: ObservableObject {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let decoded = try JSONDecoder().decode(MangaResponse.self, from: data)
-            mangaList = decoded.data
+            topMangaList = decoded.data
         } catch {
-            print("Failed to fetch manga: \(error.localizedDescription)")
+            print("Failed to fetch top manga: \(error.localizedDescription)")
         }
     }
 }

@@ -1,5 +1,5 @@
 //
-//  WelcomeView.swift
+//  HomeView.swift
 //  JikanAPP
 //
 //  Created by stolenfallen1 on 7/22/25.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct WelcomeView: View {
+struct HomeView: View {
     var body: some View {
         NavigationStack {
             VStack {
@@ -18,11 +18,11 @@ struct WelcomeView: View {
                     Text("Manga's")
                 }
             }
-            .navigationTitle("Welcome View")
+            .navigationBarHidden(true)
         }
     }
 }
 
 #Preview {
-//    WelcomeView()
+//    HomeView()
 }
