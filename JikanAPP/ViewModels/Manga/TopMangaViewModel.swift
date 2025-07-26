@@ -9,7 +9,7 @@ import Foundation
 
 @MainActor
 class TopMangaViewModel: ObservableObject {
-    @Published var topMangaList: [TopManga] = []
+    @Published var topMangaList: [Manga] = []
     
     func fetchTopManga() async {
         let urlString = "https://api.jikan.moe/v4/top/manga"

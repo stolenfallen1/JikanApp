@@ -7,49 +7,46 @@
 
 import SwiftUI
 
-enum MangaFilter: String {
-    case top = "Top Manga"
-    case reviews = "High Reviews"
-}
-
 struct MangaView: View {
     @StateObject private var topMangaViewModel = TopMangaViewModel()
-    @StateObject private var highReviewMangaViewModel = HighReviewMangaViewModel()
-    @State private var selectedFilter: MangaFilter = .top
+    @StateObject private var genreListViewModel = GenreListViewModel()
+    @StateObject private var genreMangaViewModel = GenreMangaViewModel()
+    @State private var selectedGenreID: Int? = nil
+    @State private var selectedGenreName: String = "Top Manga"
+    @State private var showGenreSheet = false
+    @State private var searchFilterText = ""
+    
+    var filteredGenres: [Genres] {
+        let list = searchFilterText.isEmpty ? genreListViewModel.genres : genreListViewModel.genres.filter {
+            $0.name.localizedCaseInsensitiveContains(searchFilterText)
+        }
+        
+        // Remove weird ass duplicates by name
+        var seen = Set<String>()
+        return list.filter { genre in
+            guard !seen.contains(genre.name.lowercased()) else { return false }
+            seen.insert(genre.name.lowercased())
+            return true
+        }
+    }
 
     let columns = [GridItem(.adaptive(minimum: 150))]
 
     var body: some View {
         ScrollView {
-            if selectedFilter == .top {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(topMangaViewModel.topMangaList) { manga in
-                        TopMangaItemView(topManga: manga)
-                    }
-                    .padding()
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(selectedGenreID == nil ? topMangaViewModel.topMangaList : genreMangaViewModel.mangaList) { manga in
+                    MangaItemView(manga: manga)
                 }
-            } else {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(highReviewMangaViewModel.highReviewMangaList) { manga in
-                        HighReviewMangaItemView(highReviewManga: manga)
-                    }
-                    .padding()
-                }
+                .padding()
             }
         }
-        .navigationTitle(selectedFilter.rawValue)
+        .navigationTitle(selectedGenreName)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Top Manga") {
-                        selectedFilter = .top
-                        Task { await topMangaViewModel.fetchTopManga() }
-                    }
-                    Button("High Reviews") {
-                        selectedFilter = .reviews
-                        Task { await highReviewMangaViewModel.fetchHighReviewManga() }
-                    }
+                Button {
+                    showGenreSheet = true
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease.circle")
                         .imageScale(.large)
@@ -59,22 +56,74 @@ struct MangaView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(Color(.systemBackground), for: .navigationBar)
         .task {
-            if selectedFilter == .top {
-                await topMangaViewModel.fetchTopManga()
-            } else {
-                await highReviewMangaViewModel.fetchHighReviewManga()
+            await topMangaViewModel.fetchTopManga()
+        }
+        .sheet(isPresented: $showGenreSheet) {
+            VStack(spacing: 0) {
+                // Sheet Header
+                HStack {
+                    Text("Select Genre")
+                        .font(.headline)
+                    Spacer()
+                    Button("Cancel") {
+                        showGenreSheet = false
+                        searchFilterText = ""
+                    }
+                    .foregroundColor(.blue)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                
+                // Search bar
+                TextField("Search Genres...", text: $searchFilterText)
+                    .padding(8)
+                    .background(Color(.systemGray5))
+                    .cornerRadius(10)
+                    .padding()
+
+                // Genre List
+                List(filteredGenres) { genre in
+                    Button {
+                        selectedGenreName = genre.name
+                        selectedGenreID = genre.mal_id
+                        showGenreSheet = false
+                        searchFilterText = ""
+                    } label: {
+                        HStack {
+                            Text(genre.name)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("(\(genre.count))")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .searchable(text: $searchFilterText, placement: .automatic)
+                .task {
+                    if genreListViewModel.genres.isEmpty {
+                        await genreListViewModel.fetchGenres(for: "manga")
+                    }
+                }
+            }
+            .presentationDetents([.fraction(0.7)]) // Present sheet 70%
+        }
+        .onChange(of: selectedGenreID) { oldValue, newValue in
+            if let id = newValue {
+                Task {
+                    await genreMangaViewModel.fetchManga(for: id)
+                }
             }
         }
     }
 }
 
 
-struct TopMangaItemView: View {
-    let topManga: TopManga
+struct MangaItemView: View {
+    let manga: Manga
     
     var body: some View {
         VStack {
-            AsyncImage(url: URL(string: topManga.images.jpg.image_url)) { phase in
+            AsyncImage(url: URL(string: manga.images.jpg.image_url)) { phase in
                 switch phase {
                     case .empty:
                         ProgressView()
@@ -89,47 +138,12 @@ struct TopMangaItemView: View {
                         EmptyView()
                 }
             }
-            Text(topManga.title)
+            Text(manga.title)
                 .font(.caption)
                 .lineLimit(2)
                 .padding([.leading, .trailing], 4)
         }
         .background(Color.blue.opacity(0.1))
-        .cornerRadius(12)
-    }
-}
-
-struct HighReviewMangaItemView: View {
-    let highReviewManga: HighReviewManga
-    
-    var body: some View {
-        VStack {
-            AsyncImage(url: URL(string: highReviewManga.entry.images.jpg.image_url)) { phase in
-                switch phase {
-                    case .empty:
-                        ProgressView()
-                    case .success(let image):
-                        image.resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 20)
-                            .clipped()
-                    case .failure:
-                        Image(systemName: "xmark.octagon")
-                    @unknown default:
-                        EmptyView()
-                }
-            }
-            
-            Text(highReviewManga.entry.title)
-                .font(.caption)
-                .lineLimit(2)
-                .padding([.leading, .trailing], 4)
-            
-            Text("⭐️ \(highReviewManga.score)")
-                .font(.caption2)
-                .foregroundColor(.orange)
-        }
-        .background(Color.orange.opacity(0.1))
         .cornerRadius(12)
     }
 }
