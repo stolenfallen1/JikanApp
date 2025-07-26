@@ -9,7 +9,7 @@ import Foundation
 
 @MainActor
 class TopAnimeViewModel: ObservableObject {
-    @Published var topAnimeList: [TopAnime] = []
+    @Published var topAnimeList: [Anime] = []
     
     func fetchTopAnime() async {
         let urlString = "https://api.jikan.moe/v4/top/anime"
