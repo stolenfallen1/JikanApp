@@ -11,10 +11,14 @@ struct MangaView: View {
     @StateObject private var topMangaViewModel = TopMangaViewModel()
     @StateObject private var genreListViewModel = GenreListViewModel()
     @StateObject private var genreMangaViewModel = GenreMangaViewModel()
+    @StateObject private var searchMangaViewModel = SearchMangaViewModel()
+    @State private var searchText = ""
     @State private var selectedGenreID: Int? = nil
     @State private var selectedGenreName: String = "Top Manga"
     @State private var showGenreSheet = false
     @State private var searchFilterText = ""
+    
+    let columns = [GridItem(.adaptive(minimum: 150))]
     
     var filteredGenres: [Genres] {
         let list = searchFilterText.isEmpty ? genreListViewModel.genres : genreListViewModel.genres.filter {
@@ -29,13 +33,21 @@ struct MangaView: View {
             return true
         }
     }
-
-    let columns = [GridItem(.adaptive(minimum: 150))]
+    
+    var mangaToDisplay: [Manga] {
+        if !searchText.isEmpty {
+            return searchMangaViewModel.searchResults
+        } else if let _ = selectedGenreID {
+            return genreMangaViewModel.mangaList
+        } else {
+            return topMangaViewModel.topMangaList
+        }
+    }
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(selectedGenreID == nil ? topMangaViewModel.topMangaList : genreMangaViewModel.mangaList) { manga in
+                ForEach(mangaToDisplay) { manga in
                     MangaItemView(manga: manga)
                 }
                 .padding()
@@ -43,6 +55,7 @@ struct MangaView: View {
         }
         .navigationTitle(selectedGenreName)
         .navigationBarTitleDisplayMode(.large)
+        
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -58,6 +71,14 @@ struct MangaView: View {
         .task {
             await topMangaViewModel.fetchTopManga()
         }
+        
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic))
+        .onChange(of: searchText, initial: false, { _, newValue in
+            Task {
+                await searchMangaViewModel.searchManga(query: newValue)
+            }
+        })
+        
         .sheet(isPresented: $showGenreSheet) {
             VStack(spacing: 0) {
                 // Sheet Header
@@ -107,7 +128,7 @@ struct MangaView: View {
             }
             .presentationDetents([.fraction(0.7)]) // Present sheet 70%
         }
-        .onChange(of: selectedGenreID) { oldValue, newValue in
+        .onChange(of: selectedGenreID, initial: false) { _, newValue in
             if let id = newValue {
                 Task {
                     await genreMangaViewModel.fetchManga(for: id)
