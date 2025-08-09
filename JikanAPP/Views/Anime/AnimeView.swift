@@ -44,27 +44,31 @@ struct AnimeView: View {
         }
     }
     
+    var currentViewModel: any InfiniteLoadingViewModel {
+        if !searchText.isEmpty {
+            return searchAnimeViewModel
+        } else if let _ = selectedGenreID {
+            return genreAnimeViewModel
+        } else {
+            return topAnimeViewModel
+        }
+    }
+    
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(animeToDisplay) { anime in
-                    AnimeItemView(anime: anime)
+                animeGridContent
+                
+                // Loading indicator
+                if currentViewModel.isLoadingMore {
+                    loadingIndicator
                 }
-                .padding()
             }
         }
         .navigationTitle(selectedGenreName)
         .navigationBarTitleDisplayMode(.large)
-        
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showGenreSheet = true
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .imageScale(.large)
-                }
-            }
+            toolbarContent
         }
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(Color(.systemBackground), for: .navigationBar)
@@ -80,59 +84,115 @@ struct AnimeView: View {
         })
         
         .sheet(isPresented: $showGenreSheet) {
-            VStack(spacing: 0) {
-                // Sheet Header
-                HStack {
-                    Text("Select Genre")
-                        .font(.headline)
-                    Spacer()
-                    Button("Cancel") {
-                        showGenreSheet = false
-                        searchFilterText = ""
-                    }
-                    .foregroundColor(.blue)
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                
-                // Search bar
-                TextField("Search Genres...", text: $searchFilterText)
-                    .padding(8)
-                    .background(Color(.systemGray5))
-                    .cornerRadius(10)
-                    .padding()
-                
-                // Genre List
-                List(filteredGenres) { genre in
-                    Button {
-                        selectedGenreName = genre.name
-                        selectedGenreID = genre.mal_id
-                        showGenreSheet = false
-                        searchFilterText = ""
-                    } label: {
-                        HStack {
-                            Text(genre.name)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text("(\(genre.count))")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .searchable(text: $searchFilterText, placement: .automatic)
-                .task {
-                    if genreListViewModel.genres.isEmpty {
-                        await genreListViewModel.fetchGenres(for: "anime")
-                    }
-                }
-            }
-            .presentationDetents([.fraction(0.7)]) // Present sheet 70%
+            genreSheetContent
         }
         .onChange(of: selectedGenreID, initial: false) { _, newValue in
             if let id = newValue {
                 Task {
                     await genreAnimeViewModel.fetchAnime(for: id)
                 }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var animeGridContent: some View {
+        ForEach(Array(animeToDisplay.enumerated()), id: \.element.id) { index, anime in
+            AnimeItemView(anime: anime)
+                .onAppear {
+                    if index >= animeToDisplay.count - 5 {
+                        loadMoreIfNeeded()
+                    }
+                }
+        }
+        .padding()
+    }
+    
+    @ViewBuilder
+    private var loadingIndicator: some View {
+        HStack {
+            Spacer()
+            ProgressView()
+                .scaleEffect(0.8)
+            Text("Loading more...")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding()
+    }
+    
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                showGenreSheet = true
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .imageScale(.large)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var genreSheetContent: some View {
+        VStack(spacing: 0) {
+            // Sheet Header
+            HStack {
+                Text("Select Genre")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") {
+                    showGenreSheet = false
+                    searchFilterText = ""
+                }
+                .foregroundColor(.blue)
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            
+            // Search bar
+            TextField("Search Genres...", text: $searchFilterText)
+                .padding(8)
+                .background(Color(.systemGray5))
+                .cornerRadius(10)
+                .padding()
+            
+            // Genre List
+            List(filteredGenres) { genre in
+                Button {
+                    selectedGenreName = genre.name
+                    selectedGenreID = genre.mal_id
+                    showGenreSheet = false
+                    searchFilterText = ""
+                } label: {
+                    HStack {
+                        Text(genre.name)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("(\(genre.count))")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .searchable(text: $searchFilterText, placement: .automatic)
+            .task {
+                if genreListViewModel.genres.isEmpty {
+                    await genreListViewModel.fetchGenres(for: "anime")
+                }
+            }
+        }
+        .presentationDetents([.fraction(0.7)])
+    }
+    
+    private func loadMoreIfNeeded() {
+        Task {
+            if !searchText.isEmpty {
+                await searchAnimeViewModel.loadMoreIfNeeded(query: searchText)
+            } else if let genreID = selectedGenreID {
+                await genreAnimeViewModel.loadMoreIfNeeded(genreID: genreID)
+            } else {
+                await topAnimeViewModel.loadMoreIfNeeded()
             }
         }
     }
@@ -149,8 +209,8 @@ struct AnimeItemView: View {
                         ProgressView()
                     case .success(let image):
                         image.resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 20)
+                            .aspectRatio(2/3, contentMode: .fill)
+                            .frame(maxHeight: .infinity)
                             .clipped()
                     case .failure:
                         Image(systemName: "xmark.octagon")
