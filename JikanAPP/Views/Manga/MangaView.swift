@@ -43,28 +43,32 @@ struct MangaView: View {
             return topMangaViewModel.topMangaList
         }
     }
+    
+    var currentViewModel: any InfiniteLoadingViewModel {
+        if !searchText.isEmpty {
+            return searchMangaViewModel
+        } else if let _ = selectedGenreID {
+            return genreMangaViewModel
+        } else {
+            return topMangaViewModel
+        }
+    }
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(mangaToDisplay) { manga in
-                    MangaItemView(manga: manga)
+                mangaGridContent
+                
+                if currentViewModel.isLoadingMore {
+                    loadingIndicator
                 }
-                .padding()
             }
         }
         .navigationTitle(selectedGenreName)
         .navigationBarTitleDisplayMode(.large)
         
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showGenreSheet = true
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .imageScale(.large)
-                }
-            }
+            toolbarContent
         }
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarBackground(Color(.systemBackground), for: .navigationBar)
@@ -80,59 +84,115 @@ struct MangaView: View {
         })
         
         .sheet(isPresented: $showGenreSheet) {
-            VStack(spacing: 0) {
-                // Sheet Header
-                HStack {
-                    Text("Select Genre")
-                        .font(.headline)
-                    Spacer()
-                    Button("Cancel") {
-                        showGenreSheet = false
-                        searchFilterText = ""
-                    }
-                    .foregroundColor(.blue)
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                
-                // Search bar
-                TextField("Search Genres...", text: $searchFilterText)
-                    .padding(8)
-                    .background(Color(.systemGray5))
-                    .cornerRadius(10)
-                    .padding()
-
-                // Genre List
-                List(filteredGenres) { genre in
-                    Button {
-                        selectedGenreName = genre.name
-                        selectedGenreID = genre.mal_id
-                        showGenreSheet = false
-                        searchFilterText = ""
-                    } label: {
-                        HStack {
-                            Text(genre.name)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text("(\(genre.count))")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .searchable(text: $searchFilterText, placement: .automatic)
-                .task {
-                    if genreListViewModel.genres.isEmpty {
-                        await genreListViewModel.fetchGenres(for: "manga")
-                    }
-                }
-            }
-            .presentationDetents([.fraction(0.7)]) // Present sheet 70%
+            genreSheetContent
         }
         .onChange(of: selectedGenreID, initial: false) { _, newValue in
             if let id = newValue {
                 Task {
                     await genreMangaViewModel.fetchManga(for: id)
                 }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var mangaGridContent: some View {
+        ForEach(Array(mangaToDisplay.enumerated()), id: \.element.id) { index, manga in
+            MangaItemView(manga: manga)
+                .onAppear {
+                    if index >= mangaToDisplay.count - 5 {
+                        loadMoreIfNeeded()
+                    }
+                }
+        }
+        .padding()
+    }
+    
+    @ViewBuilder
+    private var loadingIndicator: some View {
+        HStack {
+            Spacer()
+            ProgressView()
+                .scaleEffect(0.8)
+            Text("Loading more...")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding()
+    }
+    
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                showGenreSheet = true
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .imageScale(.large)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var genreSheetContent: some View {
+        VStack(spacing: 0) {
+            // Sheet Header
+            HStack {
+                Text("Select Genre")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") {
+                    showGenreSheet = false
+                    searchFilterText = ""
+                }
+                .foregroundColor(.blue)
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            
+            // Search bar
+            TextField("Search Genres...", text: $searchFilterText)
+                .padding(8)
+                .background(Color(.systemGray5))
+                .cornerRadius(10)
+                .padding()
+            
+            // Genre List
+            List(filteredGenres) { genre in
+                Button {
+                    selectedGenreName = genre.name
+                    selectedGenreID = genre.mal_id
+                    showGenreSheet = false
+                    searchFilterText = ""
+                } label: {
+                    HStack {
+                        Text(genre.name)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("(\(genre.count))")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .searchable(text: $searchFilterText, placement: .automatic)
+            .task {
+                if genreListViewModel.genres.isEmpty {
+                    await genreListViewModel.fetchGenres(for: "manga")
+                }
+            }
+        }
+        .presentationDetents([.fraction(0.7)])
+    }
+    
+    private func loadMoreIfNeeded() {
+        Task {
+            if !searchText.isEmpty {
+                await searchMangaViewModel.loadMoreIfNeeded(query: searchText)
+            } else if let genreID = selectedGenreID {
+                await genreMangaViewModel.loadMoreIfNeeded(genreID: genreID)
+            } else {
+                await topMangaViewModel.loadMoreIfNeeded()
             }
         }
     }
@@ -150,8 +210,8 @@ struct MangaItemView: View {
                         ProgressView()
                     case .success(let image):
                         image.resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 20)
+                            .aspectRatio(2/3, contentMode: .fill)
+                            .frame(maxHeight: .infinity)
                             .clipped()
                     case .failure:
                         Image(systemName: "xmark.octagon")
