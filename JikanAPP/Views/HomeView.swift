@@ -29,6 +29,23 @@ enum ContentType {
 struct HomeView: View {
     @State private var currentImageIndex = 0
     @State private var searchText = ""
+    @State private var orientation = UIDeviceOrientation.unknown // Orientation state
+    
+    // Computed property to check if user device is phone
+    private var isPhone: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+    
+    // Computed property to check device orientation
+    private var isLandscape: Bool {
+        orientation.isLandscape
+    }
+    
+    private var shouldHideNavigationCards: Bool {
+        isLandscape && isPhone
+    }
+    
+    private
     
     let featuredContent = [
         FeaturedContent(title: "Attack on Titan", type: .anime, rating: 9.0, year: "2013", description: "Humanity fights for survival against giant Titans"),
@@ -57,7 +74,7 @@ struct HomeView: View {
                 )
                 .ignoresSafeArea()
                 
-                VStack(spacing: 0) {
+                VStack {
                     VStack(spacing: 20) {
                         // App title row
                         HStack {
@@ -88,87 +105,116 @@ struct HomeView: View {
                         .cornerRadius(12)
                     }
                     .padding(.horizontal)
-                    .padding(.top, 30)
+                    .padding(.top)
                     
-                    Spacer()
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text(currentFeatured.type.displayName)
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(currentFeatured.type == .anime ? Color.red : Color.blue)
-                                .cornerRadius(16)
-                            
+                    ScrollView(showsIndicators: false) {
+                        VStack {
                             Spacer()
+                                .frame(height: 20)
                             
-                            // Rating
-                            HStack(spacing: 4) {
-                                Image(systemName: "star.fill")
-                                    .foregroundColor(.yellow)
-                                    .font(.caption)
-                                Text(String(format: "%.1f", currentFeatured.rating))
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text(currentFeatured.type.displayName)
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(currentFeatured.type == .anime ? Color.red : Color.blue)
+                                        .cornerRadius(16)
+                                    
+                                    Spacer()
+                                    
+                                    // Rating
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.yellow)
+                                            .font(.caption)
+                                        Text(String(format: "%.1f", currentFeatured.rating))
+                                            .foregroundColor(.white)
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                    }
+                                }
+                                
+                                Text(currentFeatured.title)
+                                    .font(.title)
+                                    .fontWeight(.bold)
                                     .foregroundColor(.white)
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                                
+                                Text(currentFeatured.year)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                
+                                Text(currentFeatured.description)
+                                    .font(.body)
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .lineLimit(2)
+                                
+                                Button(action: {}) {
+                                    HStack {
+                                        Text("View Details")
+                                            .fontWeight(.semibold)
+                                        Image(systemName: "arrow.right")
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .background(Color.white.opacity(0.2))
+                                    .cornerRadius(20)
+                                }
+                                .padding(.top)
                             }
-                        }
-                        
-                        Text(currentFeatured.title)
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        Text(currentFeatured.year)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                        
-                        Text(currentFeatured.description)
-                            .font(.body)
-                            .foregroundColor(.white.opacity(0.9))
-                            .lineLimit(2)
-                        
-                        Button(action: {}) {
-                            HStack {
-                                Text("View Details")
-                                    .fontWeight(.semibold)
-                                Image(systemName: "arrow.right")
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(20)
-                        }
-                        .padding(.top, 8)
-                    }
-                    .padding(.horizontal)
-                    
-                    Spacer()
-                    
-                    // Navigation buttons ( Anime and Manga Views )
-                    VStack(spacing: 16) {
-                        HStack(spacing: 16) {
-                            NavigationLink(destination: AnimeView()) {
-                                NavigationCard(title: "Browse Anime", icon: "tv.fill", color: .red)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            .padding(.horizontal)
                             
-                            NavigationLink(destination: MangaView()) {
-                                NavigationCard(title: "Browse Manga", icon: "book.fill", color: .blue)
+                            if shouldHideNavigationCards {
+                                VStack(spacing: 20) {
+                                    Spacer()
+                                        .frame(height: 30)
+                                    
+                                    HStack(spacing: 10) {
+                                        NavigationLink(destination: AnimeView()) {
+                                            NavigationCard(title: "Browse Anime", icon: "tv.fill", color: .red)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                        
+                                        NavigationLink(destination: MangaView()) {
+                                            NavigationCard(title: "Browse Manga", icon: "book.fill", color: .blue)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
+                                }
+                                .padding(.horizontal)
                             }
-                            .buttonStyle(PlainButtonStyle())
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 30)
+                    
+                    // Navigation buttons fixed at the bottom for portrait only
+                    if !shouldHideNavigationCards {
+                        VStack(spacing: 10) {
+                            HStack(spacing: 10) {
+                                NavigationLink(destination: AnimeView()) {
+                                    NavigationCard(title: "Browse Anime", icon: "tv.fill", color: .red)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                NavigationLink(destination: MangaView()) {
+                                    NavigationCard(title: "Browse Manga", icon: "book.fill", color: .blue)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom)
+                    }
                 }
             }
             .onAppear {
+                orientation = UIDevice.current.orientation
                 startAutoRotation()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+                orientation = UIDevice.current.orientation
             }
             .navigationBarHidden(true)
         }
@@ -191,7 +237,7 @@ struct NavigationCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.title)
+                .font(.title2)
                 .foregroundColor(color)
             
             Text(title)
@@ -199,7 +245,7 @@ struct NavigationCard: View {
                 .fontWeight(.bold)
                 .foregroundColor(.white)
         }
-        .padding(20)
+        .padding()
         .frame(maxWidth: 200)
         .background(Color.black.opacity(0.4))
         .cornerRadius(16)
@@ -229,5 +275,5 @@ struct HeroImageView: View {
 }
 
 #Preview {
-    HomeView()
+//    HomeView()
 }
