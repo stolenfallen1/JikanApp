@@ -98,12 +98,15 @@ struct MangaView: View {
     @ViewBuilder
     private var mangaGridContent: some View {
         ForEach(Array(mangaToDisplay.enumerated()), id: \.element.id) { index, manga in
-            MangaItemView(manga: manga)
-                .onAppear {
-                    if index >= mangaToDisplay.count - 5 {
-                        loadMoreIfNeeded()
-                    }
+            NavigationLink(destination: MoreDetailsMangaView(manga: manga)) {
+                MangaItemView(manga: manga)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onAppear {
+                if index >= mangaToDisplay.count - 5 {
+                    loadMoreIfNeeded()
                 }
+            }
         }
         .padding()
     }
