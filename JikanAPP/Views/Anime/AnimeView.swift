@@ -98,12 +98,15 @@ struct AnimeView: View {
     @ViewBuilder
     private var animeGridContent: some View {
         ForEach(Array(animeToDisplay.enumerated()), id: \.element.id) { index, anime in
-            AnimeItemView(anime: anime)
-                .onAppear {
-                    if index >= animeToDisplay.count - 5 {
-                        loadMoreIfNeeded()
-                    }
+            NavigationLink(destination: MoreDetailsAnimeView(anime: anime)) {
+                AnimeItemView(anime: anime)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onAppear {
+                if index >= animeToDisplay.count - 5 {
+                    loadMoreIfNeeded()
                 }
+            }
         }
         .padding()
     }
